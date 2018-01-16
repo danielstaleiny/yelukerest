@@ -10,6 +10,7 @@ const RedisStore = require('connect-redis')(session);
 const config = require('./config.js');
 const morgan = require('morgan');
 const winston = require('winston');
+const request = require('request');
 
 // Set up logging
 const level = process.env.LOG_LEVEL || 'debug';
@@ -412,6 +413,28 @@ router.get('/me', validateYelukeUser, async(req, res) => {
 // TODO: find a solution.
 const mountPrefix = '/auth';
 app.use(mountPrefix, router);
+
+// Add a swagger proxy
+router.use('/openapi/', validateYelukeUser, (req, res) => {
+    const {
+        jwt,
+        error,
+    } = jwtForRequest(req);
+    if (error) {
+        return;
+    }
+    const options = {
+        url: `${req.protocol}://${req.get('host')}/swagger/`,
+        headers: {
+            Authorization: `Bearer: ${jwt}`,
+        },
+    };
+    logger.info('Going to proxy request');
+    logger.info(options);
+    console.log(req.headers);
+    req.pipe(request(options))
+        .pipe(res);
+});
 
 
 const PORT = 4000;
